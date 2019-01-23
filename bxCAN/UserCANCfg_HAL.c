@@ -21,7 +21,6 @@ void hcanPointerConfig(CAN_HandleTypeDef *p_hcan)
   p_hcan->pRxMsg  = &sCanRxMessage;
   p_hcan->pRx1Msg = &sCanRx1Message;
 }
-
 /**
 之后，hcan.pTxMsg虽然已初始化，
 但它指向的内存变量如 sCanTxMessage，在调用发送接口函数前仍需要被正确赋值。
@@ -33,15 +32,15 @@ void hcanTxMsgConfig(CAN_HandleTypeDef *p_hcan)
 {
   p_hcan->pTxMsg-> StdId = (uint32_t) 0x123;       /*!< Min_Data = 0 and Max_Data = 0x7FF */
   p_hcan->pTxMsg-> ExtId = (uint32_t) 0x12345678;  /*!< Min_Data = 0 and Max_Data = 0x1FFFFFFF */
-	
+  
   p_hcan->pTxMsg-> IDE   =  /*!< @ref CAN_Identifier_Type */
-//                      	 CAN_ID_STD; /*!< Standard Id */
-                      	   CAN_ID_EXT;  /*!< Extended Id */
-	
+//                           CAN_ID_STD; /*!< Standard Id */
+                           CAN_ID_EXT;  /*!< Extended Id */
+  
   p_hcan->pTxMsg-> RTR   =  /*!< @ref CAN_remote_transmission_request */
-                        	 CAN_RTR_DATA; /*!< Data frame */
-//                      	 CAN_RTR_REMOTE; /*!< Remote frame */
-	
+                           CAN_RTR_DATA; /*!< Data frame */
+//                           CAN_RTR_REMOTE; /*!< Remote frame */
+  
   p_hcan->pTxMsg-> DLC   = 8;  /*!< Min_Data = 0 and Max_Data = 8 */
 
   p_hcan->pTxMsg-> Data[0] = (uint8_t) 0x11;  /*!< Min_Data = 0 and Max_Data = 0xFF */
@@ -56,8 +55,31 @@ void hcanTxMsgConfig(CAN_HandleTypeDef *p_hcan)
 
 
 /**
-设置单个过滤器的一个例子。用IdMask与32位模式的配置函数，其中调用了公式自动计算：
-*
+设置过滤器时的寄存器计算宏。至于为何如此计算，详见手册。
+这里为了易读，是把计算方式写复杂了（交给编译器优化）。实际应用中可以简化。
+IDE: =0 for STD,   =1 for EXT.
+RTR: =0 for DATA,  =1 for REMOTE.
+*/
+
+/* SCALE32 handles ExtId: */
+#define SCL32_EXT_HIGH(_ExtId_)         ( ((_ExtId_) << 3 >> 16) & 0xFFFF )
+#define SCL32_EXT_DATA_LOW(_ExtId_)     ( ((_ExtId_) << 3) & 0xFFF8 | (1<<2) | (0<<1) ) /* [IDE RTR 0] for last 3 bits */
+#define SCL32_EXT_REMOTE_LOW(_ExtId_)   ( ((_ExtId_) << 3) & 0xFFF8 | (1<<2) | (1<<1) )
+
+/* SCALE32 handles StdId: */
+#define SCL32_STD_HIGH(_StdId_)         ( ((_StdId_) << 5) & 0xFFE0 )
+#define SCL32_STD_DATA_LOW(_StdId_)     ( (0<<2) | (0<<1) ) /* [IDE RTR 0] for last 3 bits */
+#define SCL32_STD_REMOTE_LOW(_StdId_)   ( (0<<2) | (1<<1) )
+
+/* SCALE16 handles StdId: */
+#define SCL16_STD_DATA(_StdId_)         ( ((_StdId_) << 5) & 0xFFE0 | (0<<3) | (0<<4) ) /* [ RTR IDE EXIT[17:15] ] for last 5 bits */
+#define SCL16_STD_REMOTE(_StdId_)       ( ((_StdId_) << 5) & 0xFFE0 | (0<<3) | (1<<4) )
+
+/* SCALE16 should not handle ExtId so there is no SCL16_EXTID marco. */
+  
+/**
+设置单个过滤器的一个例子。用IdMask与32位模式的配置函数，其中调用了宏公式自动计算，请灵活修改：
+*/
 void hcanFilterCfg_IdMaskScale32(CAN_HandleTypeDef *p_hcan)
 {
   CAN_FilterConfTypeDef filterCfg;
@@ -67,40 +89,41 @@ void hcanFilterCfg_IdMaskScale32(CAN_HandleTypeDef *p_hcan)
   #else
   filterCfg.FilterNumber = 0;  /*!< Min_Data = 0 and Max_Data = 13. */
   #endif
-	
+  
   filterCfg.FilterMode  = /*!<  @ref CAN_filter_mode */
-                        	 CAN_FILTERMODE_IDMASK;  /*!< Identifier mask mode */
-//                      	 CAN_FILTERMODE_IDLIST;  /*!< Identifier list mode */
-													 
+                           CAN_FILTERMODE_IDMASK;  /*!< Identifier mask mode */
+//                           CAN_FILTERMODE_IDLIST;  /*!< Identifier list mode */
+                           
   filterCfg.FilterScale  = /*!<  @ref CAN_filter_scale */
-//                      	 CAN_FILTERSCALE_16BIT;  /*!< Two 16-bit filters */
-                      	   CAN_FILTERSCALE_32BIT;  /*!< One 32-bit filter  */
-	
+//                           CAN_FILTERSCALE_16BIT;  /*!< Two 16-bit filters */
+                           CAN_FILTERSCALE_32BIT;  /*!< One 32-bit filter  */
+  
   if( filterCfg.FilterMode == CAN_FILTERMODE_IDMASK && filterCfg.FilterScale == CAN_FILTERSCALE_32BIT)
   {
+		/* Modify these variables to accommodate different IDs: */
     uint32_t filterId = 0x12345000;
-    uint32_t maskId   = 0xFFFFF000;
-    /* Modify these two variables above,
-       do not modify the following automatic calculation formulas: */
-    filterCfg.FilterIdHigh     = (filterId << 3 >> 16) & 0xFFFF;
-    filterCfg.FilterIdLow      = (filterId << 3) & (0xFFF8 | CAN_ID_EXT);
-    filterCfg.FilterMaskIdHigh = (maskId << 3 >> 16) & 0xFFFF;
-    filterCfg.FilterMaskIdLow  = (maskId << 3) & (0xFFF8 | CAN_ID_EXT);
+    uint32_t maskId   = 0xFFFFF000;  /*Bits: =1 for must-match,  =0 for not-care */
+    
+    /* Modify these marcos to accommodate different modes: */
+    filterCfg.FilterIdHigh     = SCL32_EXT_HIGH(filterId);
+    filterCfg.FilterIdLow      = SCL32_EXT_DATA_LOW(filterId);
+    filterCfg.FilterMaskIdHigh = SCL32_EXT_HIGH(maskId);
+    filterCfg.FilterMaskIdLow  = SCL32_EXT_DATA_LOW(maskId);
   }
 
   filterCfg.FilterFIFOAssignment =  /*!< @ref CAN_filter_FIFO */
-//                      	 CAN_FILTER_FIFO0;  /*!< Filter FIFO 0 assignment for filter x */
-                      	   CAN_FILTER_FIFO1;  /*!< Filter FIFO 1 assignment for filter x */
+//                           CAN_FILTER_FIFO0;  /*!< Filter FIFO 0 assignment for filter x */
+                           CAN_FILTER_FIFO1;  /*!< Filter FIFO 1 assignment for filter x */
 
   filterCfg.FilterActivation = ENABLE;  /*!<  ENABLE or DISABLE. */
 
   filterCfg.BankNumber = 13;  /*!< Min_Data = 0 and Max_Data = 28. */ 
-  /* A filter with its number greater than or equal to this value is assigned to DMA2	*/
-	
+  /* A filter with its number greater than or equal to this value is assigned to DMA2  */
+  
   if( HAL_OK != HAL_CAN_ConfigFilter(p_hcan, &filterCfg) )
-	{
-	  return; /* Or set an error handler here. */
-	};
+  {
+    return; /* Or set an error handler here. */
+  };
 
 }
 
