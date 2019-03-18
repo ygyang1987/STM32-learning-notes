@@ -100,7 +100,7 @@ uint32_t KPChgr_canTx( void )
 //                   CAN_ID_STD; /*!< Standard Id */
                    CAN_ID_EXT;  /*!< Extended Id */
 //  KP_Charger.TxHd.StdId = (uint32_t) 0x000;       /*!< Min_Data = 0 and Max_Data = 0x7FF */
-  KP_Charger.TxHd.ExtId = (uint32_t) 0x2345678;  /*!< Min_Data = 0 and Max_Data = 0x1FFFFFFF */
+  KP_Charger.TxHd.ExtId = (uint32_t) 0x12345678;  /*!< Min_Data = 0 and Max_Data = 0x1FFFFFFF */
   KP_Charger.TxHd.RTR   =  /*!< type of the frame @ref CAN_remote_transmission_request */
                    CAN_RTR_DATA; /*!< Data frame */
 //                   CAN_RTR_REMOTE; /*!< Remote frame */
