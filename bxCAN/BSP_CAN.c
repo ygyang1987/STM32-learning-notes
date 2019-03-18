@@ -100,14 +100,13 @@ uint32_t KPChgr_canTx( void )
 //                   CAN_ID_STD; /*!< Standard Id */
                    CAN_ID_EXT;  /*!< Extended Id */
 //  KP_Charger.TxHd.StdId = (uint32_t) 0x000;       /*!< Min_Data = 0 and Max_Data = 0x7FF */
-  KP_Charger.TxHd.ExtId = (uint32_t) 0x1806E5F4;  /*!< Min_Data = 0 and Max_Data = 0x1FFFFFFF */ //发送到KINGPAN报文 ID
+  KP_Charger.TxHd.ExtId = (uint32_t) 0x2345678;  /*!< Min_Data = 0 and Max_Data = 0x1FFFFFFF */
   KP_Charger.TxHd.RTR   =  /*!< type of the frame @ref CAN_remote_transmission_request */
                    CAN_RTR_DATA; /*!< Data frame */
 //                   CAN_RTR_REMOTE; /*!< Remote frame */
   KP_Charger.TxHd.DLC   = 8;  /*!< Length of the frame. Min_Data = 0 and Max_Data = 8 */
   KP_Charger.TxHd.TransmitGlobalTime = DISABLE;
   
-  KP_Charger.TxDat[4] = (uint8_t) 0; // 0 = on.
   KP_Charger.TxDat[0] = (uint8_t) 0xF1;
   KP_Charger.TxDat[1] = (uint8_t) 0xF2;
   KP_Charger.TxDat[2] = (uint8_t) 0xF3;
